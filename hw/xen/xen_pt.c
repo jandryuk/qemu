@@ -847,6 +847,21 @@ static void xen_pt_realize(PCIDevice *d, Error **errp)
     }
 
     machine_irq = s->real_device.irq;
+    if (xen_stubdom_enabled()) {
+        rc = xen_host_pci_get_byte(&s->real_device, PCI_INTERRUPT_LINE,
+                                   &scratch);
+        if (rc) {
+            error_setg_errno(errp, errno, "Failed to read PCI_INTERRUPT_LINE");
+            goto err_out;
+        }
+
+        if (machine_irq != scratch) {
+            xen_pt_log(d, "PCI stubdom overriding machine_irq: %d with: %d\n",
+                       machine_irq, scratch);
+            machine_irq = scratch;
+        }
+    }
+
     if (machine_irq == 0) {
         XEN_PT_LOG(d, "machine irq is 0\n");
         cmd |= PCI_COMMAND_INTX_DISABLE;
